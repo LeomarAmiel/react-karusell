@@ -1,11 +1,12 @@
 import React, { Component } from 'react';
+import { findDOMNode } from 'react-dom';
 import styled, { ThemeProvider } from 'styled-components';
 import CarouselItem from './CarouselItem';
 
 const Wrapper = styled.div`
-    height: 350px;
     position: relative;
-    overflow-x: auto;
+    width: 500px;
+    overflow: hidden;
 `;
 
 const Carousel = styled.div`
@@ -13,17 +14,7 @@ const Carousel = styled.div`
     padding: 0;    
     display: flex;
     justify-content: flex-start;
-    transform: translateX(${ 
-        props => {
-            if(props.theme.end!==null&&props.theme.start!==null){
-                return props.theme.end>props.theme.start
-                ? props.theme.translateValue
-                : '-'+props.theme.translateValue
-            } else {
-                return 0;
-            }
-        }
-    }px);
+    transform: translateX(-${ props => props.theme.translateValue*props.theme.active}px);
     transition: transform .5s ease-out;
 `;
 
@@ -31,8 +22,7 @@ class Slider extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            height: window.innerHeight,
-            width: window.innerWidth,
+            width: null,
             startPosX: null,
             endPosX: null,
             active: 0,
@@ -45,10 +35,11 @@ class Slider extends Component {
     }
 
     updateDimensions () {
-        this.setState({height: window.innerHeight, width: window.innerWidth});
+        this.setState({width: findDOMNode(this).getBoundingClientRect().width});
     }
 
     componentDidMount () {
+        this.updateDimensions();
         window.addEventListener('resize', this.updateDimensions);
     }
     
@@ -70,19 +61,18 @@ class Slider extends Component {
     }
 
     handleFinishDrag () {
-        this.state.startPosX > this.state.endPosX
-            ? this.state.active===this.props.onData.length-1 
-                ? this.setState({ active: 0 })
-                : this.setState({ active: this.state.active + 1})
-            : this.state.active===0 
-                ? this.setState({ active: this.props.onData.length-1 })
-                : this.setState({ active: this.state.active - 1})
+        if(this.state.startPosX > this.state.endPosX && this.state.active!==this.props.onData.length-1){
+                this.setState({ active: this.state.active + 1})
+        } else if(this.state.startPosX < this.state.endPosX && this.state.active!==0) {
+                this.setState({ active: this.state.active - 1})
+        }
+        this.setState({startPosX: null, endPosX: null});
     }
 
     render() {
         return (
             <Wrapper>
-                <ThemeProvider theme={{start: this.state.startPosX, end: this.state.endPosX, translateValue: this.state.width, active: this.state.active }}>
+                <ThemeProvider theme={{translateValue: this.state.width, active: this.state.active }}>
                     { 
                         this.props.onIsLoaded 
                         ?    <Carousel onDragStart={this.handleDragStart} onDrag={this.handleDrag} onDragEnd={this.handleDragEnd}>
