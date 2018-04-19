@@ -3,10 +3,14 @@ import styled from 'styled-components';
 
 const Item = styled.div`
     flex: 0 0 100%;
+    height: inherit;
+    position: relative;
 `;
 
 const Image = styled.img`
+    height: inherit;
     width: 100%;
+    touch-action: none
     user-drag: none; 
     user-select: none;
 `;

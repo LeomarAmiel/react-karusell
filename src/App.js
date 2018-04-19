@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import styled from 'styled-components';
-import Slider from './components/Slider'
+import Slider from './components/Slider';
 
 const Wrapper = styled.div`
     box-sizing: border-box;
