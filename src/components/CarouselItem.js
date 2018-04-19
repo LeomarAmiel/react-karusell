@@ -7,14 +7,14 @@ const Item = styled.div`
 
 const Image = styled.img`
     width: 100%;
-        user-drag: none; 
+    user-drag: none; 
     user-select: none;
 `;
 
 export default (props) => {
     return (
         <Item>
-            <Image src={props.onImageSrc.images[0].full} alt={props.onImageSrc.metadesc} />
+            <Image src={props.onImageSrc.images[0].tn} alt={props.onImageSrc.metadesc} />
         </Item> 
     );
 }

@@ -3,7 +3,9 @@ import styled from 'styled-components';
 import Slider from './components/Slider'
 
 const Wrapper = styled.div`
-  box-sizing: border-box;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
 `;
 
 
