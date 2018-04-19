@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { PureComponent } from 'react';
 import { findDOMNode } from 'react-dom';
 import styled, { ThemeProvider } from 'styled-components';
 import CarouselItem from './CarouselItem';
@@ -9,29 +9,37 @@ const Wrapper = styled.div`
     overflow: hidden;
 `;
 
-const Carousel = styled.div`
+const Carousel = styled.div.attrs({
+    style: ({theme}) => ({
+        transform: theme.translateValue
+    }),
+})`
     margin: 0;
     padding: 0;    
     display: flex;
     justify-content: flex-start;
-    transform: translateX(-${ props => props.theme.translateValue}px);
     transition: transform .5s ease-out;
 `;
 
-class Slider extends Component {
+class Slider extends PureComponent {
     constructor(props) {
         super(props);
         this.state = {
             active: 0,
-            clickStartPosX: null,
-            clickSlidePosX: null,
-            clickEndPosX: null,
             sliderStartPosX: null,
             sliderEndPosX: null,
-            translateValue: null,
+            translateValue: 0,
             dragging: false,
             swipeTreshold: null,
             width: null,
+            animateStyle: {
+                transform: '',
+            },
+            clickValues: {
+                startPosX: null,
+                slidePosX: null,
+                endPosX: null,
+            }
         }
         this.updateDimensions = this.updateDimensions.bind(this);
         this.handleDrag = this.handleDrag.bind(this);
@@ -42,9 +50,11 @@ class Slider extends Component {
     }
 
     updateDimensions () {
+        var animateStyle = this.state.animateStyle;
+        animateStyle.transform = `translateX(-${this.state.translateValue}px)`
         this.setState({
             width: findDOMNode(this).getBoundingClientRect().width, 
-            swipeTreshold: (findDOMNode(this).getBoundingClientRect().width * 0.5),
+            swipeTreshold: (findDOMNode(this).getBoundingClientRect().width * 0.3),
             sliderStartPosX: findDOMNode(this).getClientRects()[0].left,
             sliderEndPosX: findDOMNode(this).getClientRects()[0].right,
         });
@@ -61,56 +71,82 @@ class Slider extends Component {
 
 
     handleDragStart(e) {
-        this.setState({clickStartPosX: e.clientX, dragging: true})
+        var clickValues = {...this.state.clickValues}
+        clickValues.startPosX = Math.abs(this.state.sliderStartPosX - e.clientX);
+        this.setState({clickValues, dragging: true})
     }
     
     handleDrag(e) {
-        e.preventDefault();
+        // Should rely more on the clickStartPos
         if(this.state.dragging) {
-            if(this.state.sliderStartPosX === e.clientX || this.state.sliderEndPosX === e.clientX ){
-                this.handleDragEnd(e);
-            }
 
-            if(Math.abs(this.state.clickSlidePosX - (this.state.clickStartPosX - e.clientX))>10){
-                this.setState({ clickSlidePosX: Math.abs(this.state.clickStartPosX - e.clientX)});
+            if(this.state.clickValues.slidePosX!==Math.abs(this.state.sliderStartPosX - e.clientX) 
+            && Math.abs(this.state.clickValues.slidePosX - Math.abs(this.state.sliderStartPosX - e.clientX))>10){
+                var clickValues = {...this.state.clickValues}
+                clickValues.slidePosX = Math.abs(this.state.sliderStartPosX - e.clientX);
+                this.setState({clickValues});
+            }
+            var animateStyle = this.state.animateStyle;
+            if(this.state.clickValues.startPosX > this.state.clickValues.slidePosX && this.state.clickValues.slidePosX !== null) {
+                animateStyle.transform = `translateX(-${this.state.translateValue + Math.abs(this.state.width - this.state.clickValues.slidePosX)}px)`;
+                this.setState({animateStyle});
+            } else if (this.state.clickValues.startPosX < this.state.clickValues.slidePosX) {
+                animateStyle.transform = `translateX(-${this.state.translateValue - Math.abs(this.state.clickValues.slidePosX)}px)`;
+                this.setState({animateStyle});
             }
 
         }
     }
     
     handleDragEnd (e) {
-        this.setState({clickEndPosX: e.clientX, dragging: false}, 
-            this.handleFinishDrag);
+
+        var clickValues = {...this.state.clickValues}
+        clickValues.endPosX = Math.abs(this.state.sliderStartPosX - e.clientX);
+        this.setState({clickValues, dragging: false}, 
+            this.handleFinishDrag
+        );
     }
 
     handleMouseLeave (e) {
-        if(this.state.clickStartPosX!==null){
-            this.setState({clickEndPosX: e.clientX, dragging: false},
+        var clickValues = {...this.state.clickValues}
+        clickValues.endPosX = Math.abs(this.state.sliderStartPosX - e.clientX);
+        if(this.state.clickValues.startPosX!==null&&this.state.dragging){
+            this.setState({clickValues, dragging: false},
                 this.handleFinishDrag
             )
         }
     }
 
     handleFinishDrag () {
-        if(this.state.clickStartPosX > this.state.clickEndPosX && this.state.active!==this.props.onData.length-1){
-                this.setState({ active: this.state.active + 1});
-        } else if(this.state.clickStartPosX < this.state.clickEndPosX && this.state.active!==0) {
-                this.setState({ active: this.state.active - 1})
+        if(Math.abs(this.state.clickValues.startPosX-this.state.clickValues.endPosX)>this.state.swipeTreshold){
+            var animateStyle = this.state.animateStyle;
+            if(this.state.clickValues.startPosX > this.state.clickValues.endPosX){
+                animateStyle.transform = `translateX(-${ this.state.width * (this.state.active + 1) }px)`;
+                this.setState({ active: this.state.active + 1, animateStyle, translateValue: this.state.width * (this.state.active + 1 ) })
+            }
+            else {
+                animateStyle.transform = `translateX(-${ this.state.width * (this.state.active - 1) }px)`;
+                this.setState({ active: this.state.active - 1, animateStyle, translateValue: this.state.width * (this.state.active - 1 ) })
+            }
         }
-        this.setState({clickStartPosX: null, clickSlidePosX: null, clickEndPosX: null});
+        var clickValues = this.state.clickValues;
+        clickValues.startPosX = null;
+        clickValues.slidePosX = null;
+        clickValues.endPosX = null;
+        this.setState({clickValues});
     }
 
     render() {
         return (
             <Wrapper>
-                <ThemeProvider theme={ this.state.dragging 
-                    ? this.state.active===0
-                        ? { translateValue: this.state.clickSlidePosX }
-                        : { translateValue: this.state.clickSlidePosX + (this.state.width + this.state.active) }
-                    : { translateValue: this.state.width * this.state.active }}>
+                <ThemeProvider theme={{ translateValue: this.state.animateStyle.transform}}>
                     { 
                         this.props.onIsLoaded 
-                        ?    <Carousel onMouseDown={this.handleDragStart} onMouseMove={this.handleDrag} onMouseLeave={this.handleMouseLeave} onMouseUp={this.handleDragEnd}>
+                        ?    <Carousel 
+                                onMouseDown={this.handleDragStart} 
+                                onMouseMove={this.handleDrag} 
+                                onMouseLeave={this.handleMouseLeave} 
+                                onMouseUp={this.handleDragEnd}>
                                 {
                                     this.props.onData.map((val, index) => 
                                         <CarouselItem key={index} onImageSrc={val}/>
