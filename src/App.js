@@ -6,8 +6,17 @@ const Wrapper = styled.div`
     box-sizing: border-box;
     display: flex;
     justify-content: center;
+    overflow: hidden;
+    height: 240px;
 `;
 
+const Image = styled.img`
+    height: 100%;
+    width: 100%;
+    touch-action: none
+    user-drag: none; 
+    user-select: none;
+`;
 
 class App extends Component {
     constructor(){
@@ -33,7 +42,15 @@ class App extends Component {
     render() {
         return (
             <Wrapper>
-                <Slider onIsLoaded={this.state.isLoaded} onData={this.state.items}/>
+                <Slider>
+                    {
+                        this.state.isLoaded 
+                            ? this.state.items.map((data, index) => {
+                                    return <Image key={index} src={data.images[0].tn} alt={data.metadesc}/>
+                                })
+                            : null
+                    }
+                </Slider>
             </Wrapper>
         );
     }

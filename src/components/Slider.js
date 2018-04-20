@@ -1,40 +1,22 @@
 import React, { PureComponent } from 'react';
 import { findDOMNode } from 'react-dom';
-import styled, { ThemeProvider } from 'styled-components';
-import CarouselItem from './CarouselItem';
+import styled from 'styled-components';
 
 const Wrapper = styled.div`
     position: relative;
     width: 500px;
-`;
-
-const CarouselWrapper = styled.div`
-    position: relative;
     overflow: hidden;
 `;
 
-const Carousel = styled.div.attrs({
-    style: ({theme}) => ({
-        transform: theme.translateValue
-    }),
-})`
-    user-drag: none; 
-    user-select: none;
-    touch-action: none;
-    height: 200px;
-    margin: 0;
-    padding: 0;    
+const Carousel = styled.div`
     display: flex;
+    flex-direction: row;
+    height: inherit;
     justify-content: flex-start;
-    transition: ${props => props.theme.animate 
-        ? 'transform .5s ease-out'
-        : null
-    };
 `;
 
-const Button = styled.div`
-    background-color: #efefef   ;
-    border: 1px solid red;
+const Button = styled.button`
+    background-color: rgba(239, 239, 239, .5);
     border-radius: 50%;
     display: flex;
     justify-content: center;
@@ -43,15 +25,17 @@ const Button = styled.div`
     width: 40px;
     position: absolute;
     z-index: 5;
+    top: 40%;
+    @media(max-width: 768px){
+        top: 30%;
+    }
 `
 
 const LeftButton = Button.extend`
-    top: 40%;
     left: 10px;
 `;
 
 const RightButton = Button.extend`
-    top: 40%;
     right: 10px;
 `;
 
@@ -62,6 +46,9 @@ class Slider extends PureComponent {
             active: 0,
             translateValue: 0,
             animate: false,
+            infinite: props.infinite 
+                        ? props.infinite
+                        : false,
             dragging: false,
             animateStyle: {
                 transform: '',
@@ -97,33 +84,47 @@ class Slider extends PureComponent {
 
     updateDimensions () {
         var width = findDOMNode(this).getBoundingClientRect().width;
-        var { active } = this.state; 
-        if( active === 0 ) {
-            this.handleAnimation( width );
+        var { active, infinite } = this.state;
+        if( infinite === true ){
+            if( active === 0 ) {
+                this.handleAnimation( -width );
+                this.setState({
+                    width, 
+                    swipeTreshold: width * 0.3,
+                    sliderStartPosX: findDOMNode(this).getClientRects()[0].left,
+                    sliderEndPosX: findDOMNode(this).getClientRects()[0].right,
+                    translateValue: width,
+                    animate: false
+                });
+            } else { 
+                this.handleAnimation( -(width * ( active + 1)) );
+                this.setState({
+                    width, 
+                    swipeTreshold: width * 0.3,
+                    sliderStartPosX: findDOMNode(this).getClientRects()[0].left,
+                    sliderEndPosX: findDOMNode(this).getClientRects()[0].right,
+                    translateValue: width * (active + 1),
+                    animate: false
+                });
+            }
+        } else {
+            this.handleAnimation( - ( width * active ) );
             this.setState({
                 width, 
                 swipeTreshold: width * 0.3,
                 sliderStartPosX: findDOMNode(this).getClientRects()[0].left,
                 sliderEndPosX: findDOMNode(this).getClientRects()[0].right,
-                translateValue: width,
+                translateValue: width * active,
                 animate: false
             });
-            return null;
         }
-        this.handleAnimation( width * ( active + 1) );
-        this.setState({
-            width, 
-            swipeTreshold: width * 0.3,
-            sliderStartPosX: findDOMNode(this).getClientRects()[0].left,
-            sliderEndPosX: findDOMNode(this).getClientRects()[0].right,
-            translateValue: width * (active + 1),
-            animate: false
-        });
+        
+
     }
 
     checkInfiniteScrolling (active) {
         var { animateStyle, width } = this.state;
-        if(active===this.props.onData.length) {
+        if(active===this.props.children.length) {
             animateStyle.transform = `translateX(-${width}px)`;
             this.setState({
                 active: 0,
@@ -132,34 +133,43 @@ class Slider extends PureComponent {
                 translateValue: width
             });
         } else if ( active === -1 ) {
-            animateStyle.transform = `translateX(-${width * (this.props.onData.length) }px)`;
+            animateStyle.transform = `translateX(-${width * (this.props.children.length) }px)`;
             this.setState({
-                active: this.props.onData.length - 1,
+                active: this.props.children.length - 1,
                 animate: false,
                 animateStyle,
-                translateValue: width * this.props.onData.length
+                translateValue: width * this.props.children.length
             });
         }
     }
 
     forceSwipe(direction) {
-        var { active, clickValues, translateValue, width } = this.state;
+        var { active, clickValues, infinite, translateValue, width } = this.state;
         
         if(direction === 'right') {
             active = active + 1;
         } else if(direction === 'left') {
             active = active - 1;
         }
-        translateValue = width * (active + 1);
+
+        if (infinite) {
+            translateValue = width * (active + 1);
+        } else {
+            translateValue = width * active;
+        }
         
         clickValues.startPosX = null;
         clickValues.slidePosX = null;
         clickValues.endPosX = null;
 
-        this.handleAnimation(translateValue);
+        this.handleAnimation(-translateValue);
         this.setState({ active, translateValue, clickValues });
 
-        if(this.props.onData.length === active || active === -1 ) {
+        setTimeout(() => {
+            this.setState({animate: false});
+        }, 400)
+
+        if((this.props.children.length === active && infinite) || (active === -1 && infinite) ) {
             setTimeout(() => {
                 this.checkInfiniteScrolling(active);
             }, 500)
@@ -168,7 +178,7 @@ class Slider extends PureComponent {
     
     handleAnimation(value) {
         var { animateStyle } = this.state;
-        animateStyle.transform = `translateX(-${value}px)`;
+        animateStyle.transform = `translateX(${value}px)`;
         this.setState({ animateStyle, animate: true });
     }
 
@@ -184,31 +194,37 @@ class Slider extends PureComponent {
     
     handleDrag(e) {
         if(this.state.dragging) {
-
             var clickValues = {...this.state.clickValues}
             var { startPosX, slidePosX } = clickValues;
             var { sliderStartPosX, translateValue } = this.state;
             var animationValue = null;
+            if( !this.state.infinite ) {
+                animationValue = translateValue;
+            }
             
-            if('touches' in e ){
+            if('touches' in e && slidePosX===e.clientX ){
                 if( slidePosX!==Math.abs(sliderStartPosX - e.touches[0].clientX) 
-                && Math.abs(slidePosX - Math.abs(sliderStartPosX - e.touches[0].clientX))>10){
+                && Math.abs(slidePosX - Math.abs(sliderStartPosX - e.touches[0].clientX))>30){
                     clickValues.slidePosX = Math.abs(sliderStartPosX - e.touches[0].clientX);
                 }
             } else {
                 if(slidePosX!==Math.abs(sliderStartPosX - e.clientX) 
-                && Math.abs(slidePosX - Math.abs(sliderStartPosX - e.clientX))>10){
+                && Math.abs(slidePosX - Math.abs(sliderStartPosX - e.clientX))>30){
                     clickValues.slidePosX = Math.abs(sliderStartPosX - e.clientX);
                 }
             }
             this.setState({ clickValues, animate: false });
             
-            if(startPosX > slidePosX && slidePosX !== null) {
+            if(startPosX > slidePosX && slidePosX !== null ) {
                 animationValue = translateValue + Math.abs(startPosX - slidePosX);
-            } else if (startPosX < slidePosX && slidePosX !== null) {
+
+            console.log(animationValue);
+            } else if (startPosX < slidePosX && slidePosX !== null ) {
                 animationValue = translateValue - Math.abs(startPosX - slidePosX);
+
+            console.log(animationValue);
             }
-            this.handleAnimation(animationValue)
+            this.handleAnimation(-animationValue)
         }
     }
     
@@ -239,11 +255,26 @@ class Slider extends PureComponent {
     handleFinishDrag () {
         var clickValues = {...this.state.clickValues}
         var { startPosX, endPosX } = clickValues;
-        var { swipeTreshold } = this.state
+        var { active, dragging, infinite, swipeTreshold } = this.state
 
-
-        if(Math.abs(startPosX - endPosX) > swipeTreshold){
-            if( startPosX > endPosX){
+        if( !infinite && Math.abs(startPosX - endPosX) > swipeTreshold && dragging ) {
+            if( startPosX > endPosX ){
+                if( active !== this.props.children.length-1 ) {
+                    this.forceSwipe('right');
+                }
+                else {
+                    this.forceSwipe(null);
+                }
+            }
+            else {
+                if( active !== 0 ) {
+                    this.forceSwipe('left');
+                } else {
+                    this.forceSwipe(null);
+                }
+            }
+        } else if(Math.abs(startPosX - endPosX) > swipeTreshold && dragging){
+            if( startPosX > endPosX ){
                 this.forceSwipe('right');
             }
             else {
@@ -252,43 +283,63 @@ class Slider extends PureComponent {
         } else {
             this.forceSwipe(null);
         }
+
+
         this.setState({ dragging: false });
     }
 
     render() {
-        var { onData, onIsLoaded } = this.props; 
+        let sliderStyle = {
+            transform: this.state.animateStyle.transform,
+            transition: this.state.animate 
+            ? 'transform .5s ease-out'
+            : null
+        }
         return (
             <Wrapper>
-                <ThemeProvider theme={{ translateValue: this.state.animateStyle.transform, animate: this.state.animate }}>
-                    <CarouselWrapper>
-                        <LeftButton onClick={() => this.forceSwipe('left')}>
-                            &#10094;
-                        </LeftButton>
-                        { onIsLoaded 
-                            ? <Carousel
-                                onTouchStart={this.handleDragStart}
-                                onTouchMove={this.handleDrag}
-                                onTouchEnd={this.handleDragEnd}
-                                onMouseDown={this.handleDragStart} 
-                                onMouseMove={this.handleDrag} 
-                                onMouseLeave={this.handleMouseLeave} 
-                                onMouseUp={this.handleDragEnd}    
-                            >
-                                    <CarouselItem onImageSrc={onData[onData.length-1]}/>
-                                    {
-                                        onData.map((val, index) => 
-                                            <CarouselItem key={index} onImageSrc={val}/>
-                                        )
-                                    }
-                                    <CarouselItem onImageSrc={onData[0]}/>
-                                </Carousel>
-                            : null
+                <LeftButton onClick={
+                    this.state.dragging || this.state.animate || this.props.children === null
+                        ? null 
+                        : !this.state.infinite && this.state.active===0
+                            ? null
+                            : () => this.forceSwipe('left')
+                    }>
+                    &#10094;
+                </LeftButton>
+                    <Carousel style={sliderStyle}
+                        onTouchStart={this.handleDragStart}
+                        onTouchMove={this.handleDrag}
+                        onTouchEnd={this.handleDragEnd}
+                        onMouseDown={this.handleDragStart} 
+                        onMouseMove={this.handleDrag} 
+                        onMouseLeave={this.handleMouseLeave} 
+                        onMouseUp={this.handleDragEnd}    
+                    >
+
+                        { this.props.children === null 
+                            ? null
+                            : this.state.infinite 
+                                ? this.props.children[this.props.children.length-1]
+                                : null
                         }
-                        <RightButton onClick={() => this.forceSwipe('right')}>
-                            &#10095;
-                        </RightButton>
-                    </CarouselWrapper>
-                </ThemeProvider>
+
+                        { this.props.children }
+                        { this.props.children === null 
+                            ? null
+                            : this.state.infinite 
+                                ? this.props.children[0]
+                                : null
+                        }
+                    </Carousel>
+                <RightButton onClick={
+                    this.state.dragging || this.state.animate || this.props.children === null
+                        ? null
+                        : !this.state.infinite && this.state.active===this.props.children.length-1
+                            ? null
+                            : () => this.forceSwipe('right')
+                }>
+                    &#10095;
+                </RightButton>
             </Wrapper>
         )
     }
