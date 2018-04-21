@@ -84,7 +84,7 @@ class App extends Component {
     render() {
         return (
             <Wrapper>
-                <Slider autoplay autoplaySpeed>
+                <Slider infinite autoplay autoplaySpeed>
                     {
                         this.state.isLoaded 
                             ? this.state.items.map((data, index)    => {
