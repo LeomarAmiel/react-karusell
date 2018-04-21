@@ -178,6 +178,7 @@ class Slider extends PureComponent {
 
         if (autoplay) {
             clearInterval(intervalId);
+            this.setState({intervalId: null});
         }
 
         if(direction === 'right') {
@@ -270,9 +271,6 @@ class Slider extends PureComponent {
             } else {
                 animationValue = translateValue;
             }
-
-            console.log(animationValue);
-
             this.handleAnimation(-animationValue)
         }
     }
