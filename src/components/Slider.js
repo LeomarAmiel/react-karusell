@@ -1,42 +1,44 @@
 import React, { PureComponent } from 'react';
 import { findDOMNode } from 'react-dom';
 import styled from 'styled-components';
+import Button from './Button';
+import Indicator from './Indicator';
 
 const Wrapper = styled.div`
     position: relative;
-    width: 500px;
+    width: inherit;
     overflow: hidden;
 `;
 
 const Carousel = styled.div`
     display: flex;
     flex-direction: row;
-    height: inherit;
     justify-content: flex-start;
+    height: inherit;
+    position: relative;
+    touch-action: none;
+    user-select: none;
+    user-drag: none;
 `;
 
-const Button = styled.button`
-    background-color: rgba(239, 239, 239, .5);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 40px;
-    width: 40px;
+const LeftButtonWrapper = styled.div`
     position: absolute;
     z-index: 5;
     top: 40%;
+    left: 10px;
     @media(max-width: 768px){
         top: 30%;
     }
-`
-
-const LeftButton = Button.extend`
-    left: 10px;
 `;
 
-const RightButton = Button.extend`
+const RightButtonWrapper = styled.div`
+    position: absolute;
+    z-index: 5;
+    top: 40%;
     right: 10px;
+    @media(max-width: 768px){
+        top: 30%;
+    }
 `;
 
 class Slider extends PureComponent {
@@ -46,9 +48,17 @@ class Slider extends PureComponent {
             active: 0,
             translateValue: 0,
             animate: false,
+            autoplay: props.autoplay 
+                ? props.autoplay
+                : false,
+            autoplaySpeed: props.autoplaySpeed 
+                ? Number.isInteger(props.autoplaySpeed) 
+                    ? props.autoplaySpeed
+                    : 3000
+                : null,
             infinite: props.infinite 
-                        ? props.infinite
-                        : false,
+                ? props.infinite
+                : false,
             dragging: false,
             animateStyle: {
                 transform: '',
@@ -58,6 +68,7 @@ class Slider extends PureComponent {
                 slidePosX: null,
                 endPosX: null,
             },
+            intervalId: null,
             sliderStartPosX: null,
             sliderEndPosX: null,
             swipeTreshold: null,
@@ -70,12 +81,31 @@ class Slider extends PureComponent {
         this.handleFinishDrag = this.handleFinishDrag.bind(this);
         this.handleMouseLeave = this.handleMouseLeave.bind(this);
         this.forceSwipe = this.forceSwipe.bind(this);
+        this.goToSlide = this.goToSlide.bind(this);
         this.checkInfiniteScrolling = this.checkInfiniteScrolling.bind(this);
+        this.setAutoPlayInterval = this.setAutoPlayInterval.bind(this);
     }
 
     componentDidMount () {
         this.updateDimensions();
         window.addEventListener('resize', this.updateDimensions);
+        this.setAutoPlayInterval();
+
+    }
+
+    setAutoPlayInterval () {
+        if(this.state.autoplay){
+            var intervalId = setInterval(() => {
+                if(!this.state.dragging && this.props.children !== null ){
+                    if(this.props.children.length-1 === this.state.active && this.state.infinite!==true){
+                        this.goToSlide(0)
+                    } else {
+                        this.forceSwipe('right');
+                    }
+                }
+            }, this.state.autoplaySpeed);
+            this.setState({intervalId});
+        }
     }
     
     componentWillUnmount () {
@@ -144,8 +174,12 @@ class Slider extends PureComponent {
     }
 
     forceSwipe(direction) {
-        var { active, clickValues, infinite, translateValue, width } = this.state;
-        
+        var { active, autoplay, clickValues, infinite, intervalId, translateValue, width } = this.state;
+
+        if (autoplay) {
+            clearInterval(intervalId);
+        }
+
         if(direction === 'right') {
             active = active + 1;
         } else if(direction === 'left') {
@@ -174,6 +208,20 @@ class Slider extends PureComponent {
                 this.checkInfiniteScrolling(active);
             }, 500)
         }
+        if(autoplay){
+            this.setAutoPlayInterval();
+        }
+    }
+    
+    goToSlide(key) {
+        var { infinite, width } = this.state;
+        if( infinite ) {
+            this.setState({active: key, translateValue: width * (key + 1)});
+            this.handleAnimation( -(width * ( key + 1 )));
+        } else {
+            this.setState({active: key, translateValue: width * key});
+            this.handleAnimation( -(width * key));
+        }
     }
     
     handleAnimation(value) {
@@ -198,11 +246,11 @@ class Slider extends PureComponent {
             var { startPosX, slidePosX } = clickValues;
             var { sliderStartPosX, translateValue } = this.state;
             var animationValue = null;
-            if( !this.state.infinite ) {
+            if( this.state.infinite ) {
                 animationValue = translateValue;
             }
             
-            if('touches' in e && slidePosX===e.clientX ){
+            if('touches' in e){
                 if( slidePosX!==Math.abs(sliderStartPosX - e.touches[0].clientX) 
                 && Math.abs(slidePosX - Math.abs(sliderStartPosX - e.touches[0].clientX))>30){
                     clickValues.slidePosX = Math.abs(sliderStartPosX - e.touches[0].clientX);
@@ -217,13 +265,14 @@ class Slider extends PureComponent {
             
             if(startPosX > slidePosX && slidePosX !== null ) {
                 animationValue = translateValue + Math.abs(startPosX - slidePosX);
-
-            console.log(animationValue);
             } else if (startPosX < slidePosX && slidePosX !== null ) {
                 animationValue = translateValue - Math.abs(startPosX - slidePosX);
+            } else {
+                animationValue = translateValue;
+            }
 
             console.log(animationValue);
-            }
+
             this.handleAnimation(-animationValue)
         }
     }
@@ -297,15 +346,18 @@ class Slider extends PureComponent {
         }
         return (
             <Wrapper>
-                <LeftButton onClick={
-                    this.state.dragging || this.state.animate || this.props.children === null
-                        ? null 
-                        : !this.state.infinite && this.state.active===0
-                            ? null
-                            : () => this.forceSwipe('left')
-                    }>
-                    &#10094;
-                </LeftButton>
+                <LeftButtonWrapper>
+                    <Button onClick={
+                        this.state.dragging || this.state.animate || this.props.children === null
+                            ? null 
+                            : !this.state.infinite && this.state.active===0
+                                ? null
+                                : () => this.forceSwipe('left')
+                        }>
+                        &#10094;
+                    </Button>
+                </LeftButtonWrapper>
+                
                     <Carousel style={sliderStyle}
                         onTouchStart={this.handleDragStart}
                         onTouchMove={this.handleDrag}
@@ -331,15 +383,25 @@ class Slider extends PureComponent {
                                 : null
                         }
                     </Carousel>
-                <RightButton onClick={
-                    this.state.dragging || this.state.animate || this.props.children === null
-                        ? null
-                        : !this.state.infinite && this.state.active===this.props.children.length-1
+
+                <RightButtonWrapper>
+                    <Button onClick={
+                        this.state.dragging || this.state.animate || this.props.children === null
                             ? null
-                            : () => this.forceSwipe('right')
-                }>
-                    &#10095;
-                </RightButton>
+                            : !this.state.infinite && this.state.active===this.props.children.length-1
+                                ? null
+                                : () => this.forceSwipe('right')
+                    }>
+                        &#10095;
+                    </Button>
+                </RightButtonWrapper>
+                <Indicator onActive={this.state.active}
+                    onHandleClick={this.goToSlide}
+                    onCount = { this.props.children === null 
+                        ? null 
+                        : this.props.children.length}
+                    
+                    />
             </Wrapper>
         )
     }
